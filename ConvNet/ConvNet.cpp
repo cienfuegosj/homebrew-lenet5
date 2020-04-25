@@ -1,15 +1,25 @@
 // ConvNet.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
 #include <afx.h>
+#endif
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <cmath>
+
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
 #include <gdiplus.h>
+#endif
+
 #include "CNN.h"
+
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
 #pragma comment(lib,"gdiplus.lib")
+#endif
 
 void writeBMP(int i, unsigned char* bytes, int32_t width, int32_t height);
 int GetEncoderClsidU(const WCHAR* format, CLSID* pClsid);
