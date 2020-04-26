@@ -1,28 +1,12 @@
 // ConvNet.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
-#include <afx.h>
-#endif
-
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <cmath>
-
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
-#include <gdiplus.h>
-#endif
-
 #include "CNN.h"
-
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
-#pragma comment(lib,"gdiplus.lib")
-#endif
-
-void writeBMP(int i, unsigned char* bytes, int32_t width, int32_t height);
-int GetEncoderClsidU(const WCHAR* format, CLSID* pClsid);
 
 int reverseInt(int i) {
 	unsigned char c1, c2, c3, c4;
@@ -172,83 +156,5 @@ int main(int argc, char* argv[])
 	delete lenet5;
 
 	return 0;
-}
 
-struct IDX3BMPINFO {
-	BITMAPINFOHEADER    bmiHeader;
-	RGBQUAD             bmiColors[256];
-};
-
-void writeBMP(int i, unsigned char* bytes, int32_t width, int32_t height) {
-	// Initialize GDI+.
-	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-	ULONG_PTR gdiplusToken;
-	Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
-
-	IDX3BMPINFO* gdiBitmapInfo = new IDX3BMPINFO();
-	BITMAPINFOHEADER *bitMapInfoHeader = new BITMAPINFOHEADER();
-
-	bitMapInfoHeader->biSize = sizeof(BITMAPINFOHEADER);
-	bitMapInfoHeader->biWidth = (LONG)width;
-	bitMapInfoHeader->biHeight = (LONG)(-1*height);
-	bitMapInfoHeader->biPlanes = (WORD)1;
-	bitMapInfoHeader->biBitCount = (WORD)8;
-	bitMapInfoHeader->biCompression = (DWORD)0;
-	bitMapInfoHeader->biSizeImage = (DWORD)(width * height * sizeof(BYTE));
-	bitMapInfoHeader->biXPelsPerMeter = (LONG)0;
-	bitMapInfoHeader->biYPelsPerMeter = (LONG)0;
-	bitMapInfoHeader->biClrUsed = (DWORD)0;
-	bitMapInfoHeader->biClrImportant = (DWORD)0;
-
-	gdiBitmapInfo->bmiHeader = *bitMapInfoHeader;
-
-	const int numberOfColors = 256;
-
-	for (int i = 0; i < numberOfColors; i++) {
-		gdiBitmapInfo->bmiColors[i].rgbBlue = i;
-		gdiBitmapInfo->bmiColors[i].rgbGreen = i;
-		gdiBitmapInfo->bmiColors[i].rgbRed = i;
-		gdiBitmapInfo->bmiColors[i].rgbReserved = 0;
-	}
-
-	Gdiplus::Bitmap* bmp = Gdiplus::Bitmap::FromBITMAPINFO((BITMAPINFO*)gdiBitmapInfo, (void*)bytes);
-
-	CLSID  encoderClsid;
-	Gdiplus::EncoderParameters encoderParameters;
-	GetEncoderClsidU(L"image/bmp", &encoderClsid);
-	Gdiplus::Status status = bmp->Save(L"Alex.bmp", &encoderClsid, NULL);
-
-	delete bmp;
-	delete bitMapInfoHeader;
-}
-
-int GetEncoderClsidU(const WCHAR* format, CLSID* pClsid) {
-	
-	UINT  num = 0;          // number of image encoders
-	UINT  size = 0;         // size of the image encoder array in bytes
-
-	Gdiplus::ImageCodecInfo* pImageCodecInfo = NULL;
-
-	Gdiplus::GetImageEncodersSize(&num, &size);
-	if (size == 0)
-		return -1;  // Failure
-
-	pImageCodecInfo = (Gdiplus::ImageCodecInfo*)(malloc(size));
-	if (pImageCodecInfo == NULL)
-		return -1;  // Failure
-
-	Gdiplus::GetImageEncoders(num, size, pImageCodecInfo);
-
-	for (UINT j = 0; j < num; ++j)
-	{
-		if (wcscmp(pImageCodecInfo[j].MimeType, format) == 0)
-		{
-			*pClsid = pImageCodecInfo[j].Clsid;
-			free(pImageCodecInfo);
-			return j;  // Success
-		}
-	}
-
-	free(pImageCodecInfo);
-	return -1;
 }

@@ -1,0 +1,41 @@
+cmake_minimum_required(VERSION 3.10)
+project(Lenet5 VERSION 1.0.0)
+
+add_library(
+	CNN
+	CNN.h
+	CNN.cpp
+	)
+
+add_library(
+	ConvLayer
+	ConvLayer.h
+	ConvLayer.cpp
+	)
+
+add_library(
+	SamplingLayer
+	SamplingLayer.h
+	SamplingLayer.cpp
+	)
+
+add_library(
+	FullyConnectedLayer
+	FullyConnectedLayer.h
+	FullyConnectedLayer.cpp
+	)
+
+add_library(
+	OutputLayer
+	OutputLayer.h
+	OutputLayer.cpp
+	)
+
+add_executable(Lenet5 ConvNet.cpp)
+target_link_libraries(Lenet5
+	PRIVATE CNN
+	PRIVATE ConvLayer
+	PRIVATE SamplingLayer
+	PRIVATE FullyConnectedLayer
+	PRIVATE OutputLayer
+	)

@@ -36,7 +36,7 @@ void CNN::CreateLayers() {
 
 	// Setup S2 Sampling Layer
 	SamplingLayer::SamplingLayerParams slp2;
-	slp2.activationFunctionPtr = &tanh;
+	slp2.activationFunctionPtr = &Sigmoid;
 	slp2.neighborhoodDimension = 2;
 	slp2.heightOfInputFeatures = 28;
 	slp2.widthOfInputsFeatures = 28;
@@ -55,7 +55,7 @@ void CNN::CreateLayers() {
 
 	// Setup S4 Sampling Layer
 	SamplingLayer::SamplingLayerParams slp4;
-	slp4.activationFunctionPtr = &tanh;
+	slp4.activationFunctionPtr = &Sigmoid;
 	slp4.neighborhoodDimension = 2;
 	slp4.heightOfInputFeatures = 10;
 	slp4.widthOfInputsFeatures = 10;
@@ -76,14 +76,14 @@ void CNN::CreateLayers() {
 	FullyConnectedLayer::FullyConnectedLayerParams fclp6;
 	fclp6.numberOfInputs = 120;
 	fclp6.numberOfOutputs = 84;
-	fclp6.activationFunctionPtr = &tanh;
+	fclp6.activationFunctionPtr = &Sigmoid;
 	F6 = new FullyConnectedLayer(&fclp6);
 
 	// Setup F7 Full-Connection Layer (Hidden Layer)
 	FullyConnectedLayer::FullyConnectedLayerParams fclp7;
 	fclp7.numberOfInputs = 84;
 	fclp7.numberOfOutputs = 10;
-	fclp7.activationFunctionPtr = &tanh;
+	fclp7.activationFunctionPtr = &Sigmoid;
 	F7 = new FullyConnectedLayer(&fclp7);
 
 	// Setup O Output Layer
@@ -92,7 +92,6 @@ void CNN::CreateLayers() {
 
 void CNN::TrainNetwork(int batchSize, int epochs) {
 	if (floatImageData == nullptr) return;
-
 	float* accepted = new float[numberOfClasses];
 
 	int numberCorrect = 0;
