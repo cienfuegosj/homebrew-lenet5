@@ -21,7 +21,7 @@ int reverseInt(int i) {
 int main(int argc, char* argv[])
 {
 	// Read in the training images
-	const char* pathTrainingImages = "MNIST_Database/training/train-images.idx3-ubyte";
+	const char* pathTrainingImages = "../MNIST_Database/training/train-images.idx3-ubyte";
 	unsigned char** trainingImagesBinary = nullptr;
 	
 	std::cout << "Reading in training image data..." << std::endl;
@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Read in the training label vector
-	const char* pathTrainingLabels = "MNIST_Database/training/train-labels.idx1-ubyte";
+	const char* pathTrainingLabels = "../MNIST_Database/training/train-labels.idx1-ubyte";
 
 	unsigned char* trainingLabelsBinary = nullptr;
 
