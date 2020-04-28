@@ -65,13 +65,15 @@ float* FullyConnectedLayer::Forward(float* X) {
 	cudaMalloc((float **)&d_weights, sizeof(float) * numberOfInputs * numberOfOutputs);
 	cudaMalloc((float **)&d_result, sizeof(float) * numberOfOutputs);
 	
-	const float alf = 1.0f;
-	const float bet = 0.0f;
-	const float *alpha = &alf;
-	const float *beta = &bet;
+	cublasSetVector(numberOfInputs, sizeof(float), X, 1, d_X, 1);
+	cublasSetMatrix(numberOfInputs, numberOfOutputs, sizeof(float), weights, numberOfOutputs, d_weights, numberOfOutputs);
 	
-	cublasSgemm(hnd_Cublas, CUBLAS_OP_N, CUBLAS_OP_N, 1, numberOfOutputs, numberOfInputs, alpha, d_X, 1, d_weights, numberOfInputs, beta, d_result, 1);
-	cudaMemcpy(result, d_result, sizeof(float) * numberOfOutputs, cudaMemcpyDeviceToHost);
+	float const alpha = 1.0f;
+	float const beta = 0.0f;
+	
+	// X * W [1 x numberOfInputs][numberOfInputs x numberOfOutputs]	
+	cublasSgemm(hnd_Cublas, CUBLAS_OP_N, CUBLAS_OP_N, numberOfOutputs, 1, numberOfInputs, &alpha, d_weights, numberOfOutputs, d_X, numberOfInputs, &beta, d_result, numberOfOutputs);
+	cublasGetVector(numberOfOutputs, sizeof(float), d_result, 1, result, 1);	
 
 	cudaFree(d_X);
 	cudaFree(d_weights);
@@ -88,8 +90,36 @@ float* FullyConnectedLayer::Forward(float* X) {
 float* FullyConnectedLayer::Backward_XGrad(float* dEdY) {
 	if (!dEdX)
 		dEdX = new float[numberOfOutputs * numberOfInputs];
+#ifdef __CUDACC__
+	// Perform the transposition using cuBLAS
+	float const beta = 0.0f;
+	float const alpha = 1.0f;
+	float* weightsTransposed = new float[numberOfOutputs * numberOfInputs];
 
-	float* weightsTranposed = new float[numberOfInputs * numberOfOutputs];
+	float *d_weights, *d_weightsT;
+	cudaMalloc((float **)&d_weights, sizeof(float) * numberOfInputs * numberOfOutputs);
+	cudaMalloc((float **)&d_weightsT, sizeof(float) * numberOfOutputs * numberOfInputs);
+	cublasSetMatrix(numberOfInputs, numberOfOutputs, sizeof(float), weights, numberOfOutputs, d_weights, numberOfOutputs);
+	cublasSgeam(hnd_Cublas, CUBLAS_OP_T, CUBLAS_OP_T, numberOfInputs, numberOfOutputs, &alpha, d_weights, numberOfOutputs, &beta, d_weights, numberOfOutputs, d_weightsT, numberOfInputs);
+	cublasGetMatrix(numberOfOutputs, numberOfInputs, sizeof(float), d_weightsT, numberOfInputs, weightsTransposed, numberOfInputs);
+	cudaFree(d_weights);
+	cudaFree(d_weightsT);
+
+	float *device_dEdY, *device_WTransposed, *device_product;
+	cudaMalloc((float **)&device_dEdY, sizeof(float) * numberOfOutputs);
+	cudaMalloc((float **)&device_WTransposed, sizeof(float) * numberOfOutputs * numberOfInputs);
+	cudaMalloc((float **)&device_product, sizeof(float) * numberOfInputs);
+	cublasSetVector(numberOfOutputs, sizeof(float), dEdY, 1, device_dEdY, 1);
+	cublasSetMatrix(numberOfOutputs, numberOfInputs, sizeof(float), weightsTransposed, numberOfInputs, device_WTransposed, numberOfInputs); 
+	// dEdY * wT [1 x numberOfOutputs][numberOfOutputs x numberOfInputs]
+	cublasSgemm(hnd_Cublas, CUBLAS_OP_N, CUBLAS_OP_N, numberOfInputs, 1, numberOfOutputs, &alpha, device_WTransposed, numberOfInputs, device_dEdY, numberOfOutputs, &beta, device_product, numberOfInputs);
+	cublasGetVector(numberOfInputs, sizeof(float), device_product, 1, dEdX, 1);
+	cudaFree(device_product);
+	cudaFree(device_dEdY);
+	cudaFree(device_WTransposed);
+	delete[] weightsTransposed;
+#else
+	float *weightsTransposed = new float[numberOfOutputs * numberOfInputs];
 	for (int i = 0; i < numberOfOutputs; i++) {
 		for (int j = 0; j < numberOfInputs; j++) {
 			weightsTranposed[i*numberOfInputs + j] = weights[j*numberOfOutputs + i];
@@ -97,7 +127,8 @@ float* FullyConnectedLayer::Backward_XGrad(float* dEdY) {
 	}
 
 	MatrixMultiplication(dEdY, weightsTranposed, dEdX, 1, numberOfOutputs, numberOfInputs);
-	delete[] weightsTranposed;
+	delete[] weightsTransposed;
+#endif
 	return dEdX;
 }
 
@@ -107,8 +138,24 @@ void FullyConnectedLayer::Backward_WGrad(float* dEdY) {
 
 	// Recall that an 1 x n matrix is just a single dimension vector, so transposing has
 	// the same representation in memory
-
+#ifdef __CUDACC__
+	float const alpha = 1.0f;
+	float const beta = 0.0f;
+	float *device_X, *device_dEdY, *device_dEdW;
+	cudaMalloc((float **)&device_X, sizeof(float) * numberOfInputs);
+	cudaMalloc((float **)&device_dEdY, sizeof(float) * numberOfOutputs);
+	cudaMalloc((float **)&device_dEdW, sizeof(float) * numberOfInputs * numberOfOutputs);
+	cublasSetVector(numberOfInputs, sizeof(float), ptrX, 1, device_X, 1);
+	cublasSetVector(numberOfOutputs, sizeof(float), dEdY, 1, device_dEdY, 1);
+	// X * dEdY [numberOfInputs x 1][1 x numberOfOutputs]
+	cublasSgemm(hnd_Cublas, CUBLAS_OP_N, CUBLAS_OP_N, numberOfOutputs, numberOfInputs, 1, &alpha, device_dEdY, numberOfOutputs, device_X, 1, &beta, device_dEdW, numberOfOutputs);
+	cublasGetMatrix(numberOfInputs, numberOfOutputs, sizeof(float), device_dEdW, numberOfOutputs, dEdW, numberOfInputs);
+	cudaFree(device_X);
+	cudaFree(device_dEdY);
+	cudaFree(device_dEdW);
+#else
 	MatrixMultiplication(ptrX, dEdY, dEdW, numberOfInputs, 1, numberOfOutputs);
+#endif
 }
 
 float* FullyConnectedLayer::Backward(float* dEdY) {
