@@ -1,7 +1,14 @@
 #include "ConvLayer.h"
+#include <stdio.h>
 #include <random>
 
-ConvLayer::ConvLayer(ConvLayer::ConvLayerParams* clp) {
+#ifdef __NVCC__
+#include <cuda_runtime.h>
+#include <curand.h>
+#include <curand_kernel.h>
+#endif
+
+ConvLayer::ConvLayer(ConvLayer::ConvLayerParams* clp, ConvLayer::CudaParams* cp) {
 	this->numberOfOutputFeatures = clp->numberOfOutputFeatures;
 	this->numberOfInputsFeatures = clp->numberOfInputsFeatures;
 	this->heightOfInputFeature = clp->heightOfInputFeature;
@@ -15,9 +22,8 @@ ConvLayer::ConvLayer(ConvLayer::ConvLayerParams* clp) {
 /* Initialize the weights to random float values
 */
 void ConvLayer::InitializeWeights() {
-
 	if (!weights)
-		weights = new float[numberOfInputsFeatures * numberOfOutputFeatures * widthOfFilterBank * widthOfFilterBank];
+		weights = new float[numberOfOutputFeatures * numberOfInputsFeatures * widthOfFilterBank * widthOfFilterBank];
 
 	int m, c, k, j;
 	for (m = 0; m < numberOfOutputFeatures; m++) {

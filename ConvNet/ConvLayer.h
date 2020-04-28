@@ -11,8 +11,16 @@ public:
 		int stride;
 	};
 
+	struct CudaParams {
+		int gridDimX;
+		int gridDimY;
+		int blockDimX;
+		int blockDimY;
+		int blockDimZ;
+	};
+
 	ConvLayer() { }
-	ConvLayer(ConvLayerParams* clp);
+	ConvLayer(ConvLayerParams* clp, CudaParams* cp = nullptr);
 	float* Forward(float* X);
 	float* Backward(float* dEdy);
 	~ConvLayer();
@@ -31,10 +39,15 @@ private:
 	float* dEdW = nullptr;
 	float* dEdx = nullptr;
 	int stride = 0;
-	
+
 	void InitializeWeights();
 	float* Backward_XGrad(float* dEdy);
 	void Backward_WGrad(float* dEdy);
 	void Learn();
+
+#ifdef __NVCC__
+	dim3 blocks;
+	dim3 threadsPerBlock;
+#endif
 };
 

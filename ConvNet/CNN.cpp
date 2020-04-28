@@ -32,7 +32,14 @@ void CNN::CreateLayers() {
 	clp1.heightOfInputFeature = imageHeight;
 	clp1.widthOfInputFeature = imageWidth;
 	clp1.numberOfOutputFeatures = 6;
-	C1 = new ConvLayer(&clp1);
+
+	ConvLayer::CudaParams cp1;
+	cp1.gridDimX = 7;
+	cp1.gridDimY = 7;
+	cp1.blockDimX = 4;
+	cp1.blockDimY = 4;
+	cp1.blockDimZ = 0;	
+	C1 = new ConvLayer(&clp1, &cp1);
 
 	// Setup S2 Sampling Layer
 	SamplingLayer::SamplingLayerParams slp2;
@@ -51,7 +58,14 @@ void CNN::CreateLayers() {
 	clp3.heightOfInputFeature = 14;
 	clp3.widthOfInputFeature = 14;
 	clp3.numberOfOutputFeatures = 16;
-	C3 = new ConvLayer(&clp3);
+
+	ConvLayer::CudaParams cp3;
+	cp3.gridDimX = 5;
+	cp3.gridDimY = 5;
+	cp3.blockDimX = 2;
+	cp3.blockDimY = 2;
+	cp3.blockDimZ = 0;
+	C3 = new ConvLayer(&clp3, &cp3); 
 
 	// Setup S4 Sampling Layer
 	SamplingLayer::SamplingLayerParams slp4;
@@ -70,7 +84,14 @@ void CNN::CreateLayers() {
 	clp5.heightOfInputFeature = 5;
 	clp5.widthOfInputFeature = 5;
 	clp5.numberOfOutputFeatures = 120;
-	C5 = new ConvLayer(&clp5);
+
+	ConvLayer::CudaParams cp5;
+	cp5.gridDimX = 8;
+	cp5.gridDimY = 0;
+	cp5.blockDimX = 15;
+	cp5.blockDimY = 0;
+	cp5.blockDimZ = 0;
+	C5 = new ConvLayer(&clp5, &cp5);
 
 	// Setup F6 Full-Connection Layer
 	FullyConnectedLayer::FullyConnectedLayerParams fclp6;

@@ -1,4 +1,9 @@
 #pragma once
+
+#if __NVCC__
+#include <cublas_v2.h>
+#endif
+
 class FullyConnectedLayer
 {
 public:
@@ -32,5 +37,9 @@ private:
 	float* Backward_XGrad(float* dEdy);
 	void Backward_WGrad(float* dEdy);
 	void Learn();
+
+#ifdef __NVCC__
+	cublasHandle_t hnd_Cublas;
+#endif
 };
 

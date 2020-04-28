@@ -1,5 +1,10 @@
 #include "FullyConnectedLayer.h"
 #include <random>
+#include <iostream>
+
+#ifdef __NVCC__
+#include <cublas_v2.h>
+#endif
 
 FullyConnectedLayer::FullyConnectedLayer(FullyConnectedLayer::FullyConnectedLayerParams* fclp) {
 	this->numberOfInputs = fclp->numberOfInputs;
@@ -8,6 +13,11 @@ FullyConnectedLayer::FullyConnectedLayer(FullyConnectedLayer::FullyConnectedLaye
 
 	InitializeBias();
 	InitializeWeights();
+
+	// Initialize the CUBLAS handle if we are using Nvidia CUDA
+#ifdef __NVCC__
+	cublasCreate(&this->hnd_Cublas);
+#endif
 }
 
 FullyConnectedLayer::~FullyConnectedLayer() {
@@ -16,6 +26,11 @@ FullyConnectedLayer::~FullyConnectedLayer() {
 	delete[] result;
 	delete[] dEdW;
 	delete[] dEdX;
+
+#ifdef __NVCC__
+	if (this->hnd_Cublas)
+		cublasDestroy(this->hnd_Cublas);
+#endif
 }
 
 void FullyConnectedLayer::InitializeBias() {
@@ -38,18 +53,35 @@ void FullyConnectedLayer::InitializeWeights() {
 	}
 }
 
-
 float* FullyConnectedLayer::Forward(float* X) {
 	ptrX = X;
 
 	if (!result)
 		result = new float[numberOfOutputs];
+#ifdef __CUDACC__
+	// Perform traditional host to device and device to host memory handling
+	float *d_X, *d_weights, *d_result;
+	cudaMalloc((float **)&d_X, sizeof(float) * numberOfInputs);
+	cudaMalloc((float **)&d_weights, sizeof(float) * numberOfInputs * numberOfOutputs);
+	cudaMalloc((float **)&d_result, sizeof(float) * numberOfOutputs);
+	
+	const float alf = 1.0f;
+	const float bet = 0.0f;
+	const float *alpha = &alf;
+	const float *beta = &bet;
+	
+	cublasSgemm(hnd_Cublas, CUBLAS_OP_N, CUBLAS_OP_N, 1, numberOfOutputs, numberOfInputs, alpha, d_X, 1, d_weights, numberOfInputs, beta, d_result, 1);
+	cudaMemcpy(result, d_result, sizeof(float) * numberOfOutputs, cudaMemcpyDeviceToHost);
 
+	cudaFree(d_X);
+	cudaFree(d_weights);
+	cudaFree(d_result);
+#else
 	MatrixMultiplication(X, weights, result, 1, numberOfInputs, numberOfOutputs);
 	for (int i = 0; i < numberOfOutputs; i++) {
 		result[i] = activationFunctionPtr(result[i] + bias[i]);
 	}
-
+#endif
 	return result;
 }
 
