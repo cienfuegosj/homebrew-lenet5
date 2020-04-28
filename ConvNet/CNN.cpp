@@ -115,7 +115,6 @@ void CNN::TrainNetwork(int batchSize, int epochs) {
 	if (floatImageData == nullptr) return;
 	float* accepted = new float[numberOfClasses];
 
-	int numberCorrect = 0;
 	for (int i = 0; i < imageCount; i++) {
 		float* image = &floatImageData[i * imageHeight * imageWidth];
 		float label = floatLabelData[i];
@@ -137,9 +136,13 @@ void CNN::TrainNetwork(int batchSize, int epochs) {
 		float* dEdY1 = S2->Backward(dEdY2);
 		float* dEdY0 = C1->Backward(dEdY1);
 
-		std::cout << "Success rate:\t" << O->numberOfTrialsCorrect << "/" << O->numberOfTrials << "\t" << 100 * ((float)O->numberOfTrialsCorrect / (float)O->numberOfTrials) << "%" << std::endl;
-	}
 
+		std::cout << i << "\t"; 
+		
+		if ( i % 10 == 0){
+			std::cout << std::endl;
+		}
+	}
 	delete[] accepted;
 }
 

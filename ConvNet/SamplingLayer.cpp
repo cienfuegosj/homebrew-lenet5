@@ -1,4 +1,7 @@
 #include "SamplingLayer.h"
+#ifdef __NVCC__
+#include <cuda_runtime.h>
+#endif
 
 SamplingLayer::SamplingLayer(SamplingLayer::SamplingLayerParams* slp) {
 	activationFunctionPtr = slp->activationFunctionPtr;
@@ -26,7 +29,41 @@ void SamplingLayer::InitializeBias() {
 	}
 }
 
+#ifdef __CUDACC__
+__global__ void DeviceForward(float* X, float* Y, int nd, int Hin, int Win) {
+	int yIndex = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+
+	float sum = 0.0f;
+	for (int p = 0; p < nd; p++) {
+		for (int q = 0; q < nd; q++) {
+			int xIndex = blockIdx.x * Hin * Win + (nd * threadIdx.y + p) * Win + (nd * threadIdx.x + q);
+			sum += X[xIndex];		
+		}
+	}
+
+	sum /= float(nd * nd);
+
+	Y[yIndex] = sum;
+}
+#endif
+
 float* SamplingLayer::Forward(float* X) {
+#ifdef __CUDACC__
+	int Wout = widthOfInputFeature / neighborhoodDimension;
+	int Hout = heightOfInputFeature / neighborhoodDimension;
+	dim3 grid(numberOfInputsFeatures);
+	dim3 block(Wout, Hout);
+	
+	float *deviceX, *deviceY;
+	cudaMalloc((float**)&deviceX, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature);
+	cudaMalloc((float**)&deviceY, sizeof(float) * numberOfInputsFeatures * Hout * Wout);
+	cudaMemcpy(deviceX, X, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature, cudaMemcpyHostToDevice);
+	
+	DeviceForward<<< grid, block >>>(deviceX, deviceY, neighborhoodDimension, heightOfInputFeature, widthOfInputFeature);
+       	cudaMemcpy(outputFeatureMaps, deviceY, sizeof(float) * numberOfInputsFeatures * Hout * Wout, cudaMemcpyDeviceToHost);	
+	cudaFree(deviceX);
+	cudaFree(deviceY);
+#else
 	int m, h, w, p, q;
 	for (m = 0; m < numberOfInputsFeatures; m++) {
 		for (h = 0; h < heightOfInputFeature / neighborhoodDimension; h++) {
@@ -42,9 +79,17 @@ float* SamplingLayer::Forward(float* X) {
 			}
 		}
 	}
-
+#endif
 	return outputFeatureMaps;
 }
+
+#ifdef __NVCC__
+__global__ void DeviceBackward(float* dY, float* dX, int nd, int Hout, int Wout) {
+	int xIndex = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+
+
+}
+#endif
 
 float* SamplingLayer::Backward(float* dEdY) {
 	if (!dEdX)
@@ -58,6 +103,24 @@ float* SamplingLayer::Backward(float* dEdY) {
 		}
 	}
 
+#ifdef __CUDACC__
+	dim3 grid(numberOfInputFeatures);
+	dim3 block(heightOfInputFeature, widthOfInputFeature);
+
+	int Wout = widthOfInputFeature / neighborhoodDimension;
+        int Hout = heightOfInputFeature / neighborhoodDimension;
+	
+	float *device_dEdY, *device_dEdX;
+	cudaMalloc((float**)&device_dEdX, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature);
+        cudaMalloc((float**)&device_dEdY, sizeof(float) * numberOfInputsFeatures * Hout * Wout);
+        cudaMemcpy(device_dEdX, dEdX, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature, cudaMemcpyHostToDevice);
+	cudaMemcpy(device_dEdY, dEdY, sizeof(float) * numberOfInputsFeatures * Hout * Wout);
+
+	DeviceBackward<<< grid, block >>>(dEdX, dEdY, neighborhoodDimension, Hout, Wout);
+	cudaMemcpy(dEdX, device_dEdX, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature, cudaMemcpyDeviceToHost);
+	cudaFree(device_dEdX);
+	cudaFree(device_dEdY);
+#else	
 	for (int m = 0; m < numberOfInputsFeatures; m++) {
 		for (int rowPtr = 0; rowPtr < heightOfInputFeature - neighborhoodDimension + 1; rowPtr++) {
 			for (int colPtr = 0; colPtr < widthOfInputFeature - neighborhoodDimension + 1; colPtr++) {
@@ -69,6 +132,6 @@ float* SamplingLayer::Backward(float* dEdY) {
 			}
 		}
 	}
-	
+#endif
 	return dEdX;
 }
