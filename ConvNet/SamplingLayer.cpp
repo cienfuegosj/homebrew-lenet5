@@ -84,9 +84,19 @@ float* SamplingLayer::Forward(float* X) {
 }
 
 #ifdef __NVCC__
-__global__ void DeviceBackward(float* dY, float* dX, int nd, int Hout, int Wout) {
-	int xIndex = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+__global__ void DeviceBackward(float* dY, float* dX, int nd, int Hin, int Win) {
+	int dYIndex = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
 
+	int dXRowIdx = 0;
+	int dXColIdx = 0;
+
+	for (int p = 0; p < nd; p++) {
+		dXRowIdx = nd * threadIdx.y + p;
+		for (int q = 0; q < nd; q++) {
+			dXColIdx = nd * threadIdx.x + q;
+			dX[dXRowIdx, dXColIdx] += dY[dYIndex] / float(nd*nd);	
+		}
+	}
 
 }
 #endif
@@ -104,17 +114,18 @@ float* SamplingLayer::Backward(float* dEdY) {
 	}
 
 #ifdef __CUDACC__
-	dim3 grid(numberOfInputFeatures);
-	dim3 block(heightOfInputFeature, widthOfInputFeature);
 
 	int Wout = widthOfInputFeature / neighborhoodDimension;
         int Hout = heightOfInputFeature / neighborhoodDimension;
+	
+	dim3 block(Hout, Wout);
+	dim3 grid(numberOfInputsFeatures);
 	
 	float *device_dEdY, *device_dEdX;
 	cudaMalloc((float**)&device_dEdX, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature);
         cudaMalloc((float**)&device_dEdY, sizeof(float) * numberOfInputsFeatures * Hout * Wout);
         cudaMemcpy(device_dEdX, dEdX, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature, cudaMemcpyHostToDevice);
-	cudaMemcpy(device_dEdY, dEdY, sizeof(float) * numberOfInputsFeatures * Hout * Wout);
+	cudaMemcpy(device_dEdY, dEdY, sizeof(float) * numberOfInputsFeatures * Hout * Wout, cudaMemcpyHostToDevice);
 
 	DeviceBackward<<< grid, block >>>(dEdX, dEdY, neighborhoodDimension, Hout, Wout);
 	cudaMemcpy(dEdX, device_dEdX, sizeof(float) * numberOfInputsFeatures * heightOfInputFeature * widthOfInputFeature, cudaMemcpyDeviceToHost);
